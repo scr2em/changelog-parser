@@ -142,11 +142,13 @@ export class ChangelogParser {
 								continue;
 							}
 							const commitMatch = this.parseCommitLine(nextLine);
-							if (commitMatch) {
+							if (commitMatch && !nextLine.includes("release:")) {
 								changeType.commits.push(commitMatch);
 							}
 						}
-						currentRelease.changes.push(changeType);
+						if (changeType.commits.length) {
+							currentRelease.changes.push(changeType);
+						}
 					}
 				}
 
@@ -193,9 +195,20 @@ async function main() {
 			}
 			input = Buffer.concat(chunks).toString("utf8");
 		}
+		const topOnly = process.argv.includes("--top-only");
+		const toText = process.argv.includes("--to-text");
+		const includeCommitUrl = process.argv.includes("--include-commit-url");
 
 		const parsed = parser.parse(input);
-		console.log(JSON.stringify(parsed, null, 2));
+		if (topOnly) {
+			parsed.releases.splice(0, 1);
+		}
+
+		if (toText) {
+			console.log(ChangelogParser.formatChangelog(parsed.releases, { includeCommitUrl }));
+		} else {
+			console.log(JSON.stringify(parsed, null, 2));
+		}
 	} catch (error) {
 		console.error(error);
 		process.exit(1);
