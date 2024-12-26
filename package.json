@@ -1,0 +1,19 @@
+{
+	"name": "changelog-parser",
+	"version": "1.0.0",
+	"private": true,
+	"description": "",
+	"main": "dist/index.js",
+	"scripts": {
+		"build": "tsc",
+		"start": "node dist/index.js"
+	},
+	"bin": {
+		"parse-changelog": "./dist/index.js"
+	},
+	"devDependencies": {
+		"@types/node": "22.10.2",
+		"prettier": "3.4.2",
+		"typescript": "5.7.2"
+	}
+}
