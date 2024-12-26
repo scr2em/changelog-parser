@@ -2,20 +2,17 @@
 
 import fs from "fs";
 
-import { ParsedChangelog, VersionRelease } from "./types";
+import { ChangeEntry, CommitInfo, ParsedChangelog, VersionRelease } from "./types";
 
 export class ChangelogParser {
-	private static readonly VERSION_PATTERN =
-		/^### \[([\d\.-]+(?:-rc\.\d+)?)\]\((.*?)\/compare\/v([\d\.-]+(?:-rc\.\d+)?)\...v([\d\.-]+(?:-rc\.\d+)?)\) \((\d{4}-\d{2}-\d{2})\)$/;
-
+	private static readonly COMMIT_PATTERN =
+		/^-\s+(.+?)\s+\((?:\[)?([a-f0-9]{7,8})(?:\])?\((.*?)\/commits\/([a-f0-9]{40})\)\)$/;
 	private readonly CHANGE_TYPE_PATTERN = /### ([A-Za-z ]+)/;
-	private readonly COMMIT_PATTERN = /^-\s\s\s/;
 
 	private isVersionLine(line: string): boolean {
 		return line.startsWith("### [");
 	}
 
-	// ### [9.6.3-rc.6](https://bitbucket.org/leadliaisondev/gocv2/compare/v9.6.3-rc.5...v9.6.3-rc.6) (2024-12-26)
 	private parseVersionLine(line: string) {
 		let version = "";
 		let compareUrl = "";
@@ -55,11 +52,51 @@ export class ChangelogParser {
 		};
 	}
 
+	private isChangeTypeLine(line: string): boolean {
+		return Boolean(line.match(this.CHANGE_TYPE_PATTERN));
+	}
+
+	private parseChangeTypeLine(line: string): string {
+		const match = line.match(this.CHANGE_TYPE_PATTERN);
+		if (match) {
+			return match[1].trim();
+		}
+		return "";
+	}
+
+	private parseCommitLine(line: string): CommitInfo | null {
+		const match = line.match(ChangelogParser.COMMIT_PATTERN);
+
+		if (!match) {
+			return null;
+		}
+
+		const [_, message, shortHash, baseUrl, fullHash] = match;
+
+		// Validate hash consistency
+		if (!fullHash.startsWith(shortHash)) {
+			throw new Error(`Hash mismatch: ${shortHash} is not a prefix of ${fullHash}`);
+		}
+
+		// Validate hash formats
+		if (!/^[a-f0-9]{7,8}$/.test(shortHash)) {
+			throw new Error(`Invalid short hash format: ${shortHash}`);
+		}
+		if (!/^[a-f0-9]{40}$/.test(fullHash)) {
+			throw new Error(`Invalid full hash format: ${fullHash}`);
+		}
+
+		return {
+			message: message.trim(),
+			shortHash,
+			fullHash,
+			url: `${baseUrl}/commits/${fullHash}`,
+		};
+	}
+
 	public parse(content: string): ParsedChangelog {
 		const lines = content.split("\n");
 		const releases: VersionRelease[] = [];
-		let currentRelease: VersionRelease | null = null;
-		let currentChangeType: string | null = null;
 
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i].trim();
@@ -71,51 +108,71 @@ export class ChangelogParser {
 
 			// Check for version release
 			if (this.isVersionLine(line)) {
-				if (currentRelease) {
-					releases.push(currentRelease);
-				}
-
 				const { version, date, compareUrl } = this.parseVersionLine(line);
-				currentRelease = {
+
+				let currentRelease: VersionRelease = {
 					version,
 					date,
 					compareUrl,
 					changes: [],
 				};
-				continue;
-			}
+				while (i + 1 < lines.length && !this.isVersionLine(lines[i + 1])) {
+					i++;
+					const nextLine = lines[i].trim();
+					if (!nextLine) {
+						continue;
+					}
 
-			// Check for change type
-			const changeTypeMatch = line.match(this.CHANGE_TYPE_PATTERN);
-			if (changeTypeMatch && currentRelease) {
-				currentChangeType = changeTypeMatch[1].trim();
-				currentRelease.changes.push({
-					type: currentChangeType,
-					commits: [],
-				});
-				continue;
-			}
+					const changeTypeMatch = this.isChangeTypeLine(nextLine);
+					if (changeTypeMatch) {
+						const changeType: ChangeEntry = {
+							type: this.parseChangeTypeLine(nextLine),
+							commits: [],
+						};
 
-			// Parse commit
-			const commitMatch = line.match(this.COMMIT_PATTERN);
-			if (commitMatch && currentRelease && currentChangeType) {
-				const currentChangeEntry = currentRelease.changes.find((change) => change.type === currentChangeType);
-				console.log(commitMatch);
-				console.log(currentChangeEntry);
-				if (currentChangeEntry) {
-					currentChangeEntry.commits.push({
-						message: line,
-					});
+						while (
+							i + 1 < lines.length &&
+							!this.isVersionLine(lines[i + 1]) &&
+							!this.isChangeTypeLine(lines[i + 1])
+						) {
+							i++;
+							const nextLine = lines[i].trim();
+
+							if (!nextLine) {
+								continue;
+							}
+							const commitMatch = this.parseCommitLine(nextLine);
+							if (commitMatch) {
+								changeType.commits.push(commitMatch);
+							}
+						}
+						currentRelease.changes.push(changeType);
+					}
 				}
+
+				releases.push(currentRelease);
 			}
 		}
-
-		// Don't forget to add the last release
-		if (currentRelease) {
-			releases.push(currentRelease);
-		}
-
 		return { releases };
+	}
+
+	public static formatChangelog(releases: VersionRelease[], options?: { includeCommitUrl: boolean }): string {
+		let output = "";
+
+		releases.forEach((release) => {
+			output += `Version ${release.version} (${release.date})\n`;
+
+			release.changes.forEach((change) => {
+				output += `\n${change.type}:\n`;
+				change.commits.forEach((commit) => {
+					output += `- ${commit.message} ${options?.includeCommitUrl ? `([${commit.shortHash}](${commit.url}))` : ""}\n`;
+				});
+			});
+
+			output += "\n---\n\n";
+		});
+
+		return output;
 	}
 }
 

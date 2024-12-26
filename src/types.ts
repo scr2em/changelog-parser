@@ -1,5 +1,8 @@
 export interface CommitInfo {
 	message: string;
+	shortHash: string;
+	fullHash: string;
+	url: string;
 }
 
 export interface ChangeEntry {
