@@ -119,9 +119,6 @@ export class ChangelogParser {
 				while (i + 1 < lines.length && !this.isVersionLine(lines[i + 1])) {
 					i++;
 					const nextLine = lines[i].trim();
-					if (!nextLine) {
-						continue;
-					}
 
 					const changeTypeMatch = this.isChangeTypeLine(nextLine);
 					if (changeTypeMatch) {
@@ -138,9 +135,6 @@ export class ChangelogParser {
 							i++;
 							const nextLine = lines[i].trim();
 
-							if (!nextLine) {
-								continue;
-							}
 							const commitMatch = this.parseCommitLine(nextLine);
 							if (commitMatch && !nextLine.includes("release:")) {
 								changeType.commits.push(commitMatch);
@@ -196,12 +190,12 @@ async function main() {
 			input = Buffer.concat(chunks).toString("utf8");
 		}
 		const topOnly = process.argv.includes("--top-only");
-		const toText = process.argv.includes("--to-text");
+		const toText = process.argv.includes("--text");
 		const includeCommitUrl = process.argv.includes("--include-commit-url");
 
 		const parsed = parser.parse(input);
 		if (topOnly) {
-			parsed.releases.splice(0, 1);
+			parsed.releases = parsed.releases.slice(0, 1);
 		}
 
 		if (toText) {

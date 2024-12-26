@@ -23,7 +23,7 @@ npm install -g @scr2em/changelog-parser
 You can use the `ChangelogParser` class to parse changelog content and format it. The script can be run from the command line with the following options:
 
 - `--top-only`: Only include the top release.
-- `--to-text`: Output the parsed changelog as formatted text.
+- `--text`: Output the parsed changelog as formatted text.
 - `--include-commit-url`: Include commit URLs in the formatted text output.
 
 ### Command Line
@@ -37,7 +37,7 @@ changelog-parser <path-to-changelog-file> [options]
 ### Example
 
 ```sh
-changelog-parser CHANGELOG.md --to-text --include-commit-url
+changelog-parser CHANGELOG.md --text --include-commit-url
 ```
 
 ## API
