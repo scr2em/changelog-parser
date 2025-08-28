@@ -10,7 +10,7 @@ export class ChangelogParser {
 	private readonly CHANGE_TYPE_PATTERN = /### ([A-Za-z ]+)/;
 
 	private isVersionLine(line: string): boolean {
-		return line.startsWith("### [");
+		return line.startsWith("## [");
 	}
 
 	private parseVersionLine(line: string) {
