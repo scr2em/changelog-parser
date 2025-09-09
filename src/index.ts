@@ -102,7 +102,7 @@ export class ChangelogParser {
 			const line = lines[i].trim();
 
 			// Skip empty lines and header
-			if (!line || (line.startsWith("#") && !line.startsWith("###"))) {
+			if (!line || (line.startsWith("#") && !line.startsWith("##"))) {
 				continue;
 			}
 
